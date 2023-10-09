@@ -70,8 +70,8 @@ JOIN Destinations d ON fd.DestId = d.DestId
 JOIN Statuses s ON fd.StatusId = s.StatusId
 GROUP BY a.AirlineName, s.StatusName;"
 
-#airline_data <- dbGetQuery(con, query1)  
-#write_csv(airline_data, "airline_data.csv") 
+#airline_data <- dbGetQuery(con, query1)  # uncomment this after you create the titydata database and run the attached query
+#write_csv(airline_data, "airline_data.csv") # uncomment this after you create the titydata database and run the attached query
 airline_data <- read_csv("https://raw.githubusercontent.com/hawa1983/WK5Assignment/main/airline_data.csv")
 airline_data
 dbDisconnect(con)
