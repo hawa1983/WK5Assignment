@@ -53,7 +53,7 @@ cat("Connected to database successfully.")
 
 dbGetQuery(con, "USE tidydata")
 
-query <- readLines("C:/Users/RemoteUser/Downloads/TidyingTransforming_Data.sql")
+query <- readLines("https://raw.githubusercontent.com/hawa1983/WK5Assignment/main/TidyingTransforming_Data.sql")
 dbGetQuery(con, query)
 
 query1 <- "SELECT 
@@ -71,7 +71,7 @@ JOIN Statuses s ON fd.StatusId = s.StatusId
 GROUP BY a.AirlineName, s.StatusName;"
 
 airline_data <- dbGetQuery(con, query1)
-write_csv(airline_data, "airline_data.csv") 
+write_csv(airline_data, "https://raw.githubusercontent.com/hawa1983/WK5Assignment/main/airline_data.csv") 
 
 airline_data
 dbDisconnect(con)
