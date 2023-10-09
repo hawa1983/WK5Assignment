@@ -1,0 +1,206 @@
+---
+title: "Tidying and Transforming Data"
+author: "Fomba Kassoh, Group Member: Souleymane Doumbia"
+date: "2023-10-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Choice of questions for analysis
+
+1.	What is the total number of flights by each airline to a destination?
+2.	What proportion of flights are delayed for each airline per destination? Illustrate using a bar chart.
+3.	If you want to get to your destination on time, which airlines will you use?
+4.	What carrier provides the most service and what is the proportion of delayed arrivals per carries
+5. What airport experiences the most delays. Plot a bar chart to illustrate the total arrivals and the proportion of total delay per destination.
+
+## Load the relevant libraries 
+We start by installing the relevant packages and loading the libraries as below
+```{r load the required libraries}
+library(tidyverse)
+library(dplyr)
+library(RMySQL)
+library(DBI)
+library(readr)
+library(data.table)
+library(tidyr)
+
+```
+
+# Create database in sql
+The flight database is created in MySQL. The sql that creates the database can be found on my github
+
+Connect to database and read query
+```{r create the connection object and connect to MySQL}
+db_host <- "localhost"
+db_port <- 5432
+db_user <- "root"
+db_password <- "7!8Kas33!4"
+movies <- "tidydata"
+
+
+# Create a connection object
+con <- dbConnect(MySQL(), 
+                 user = "root",
+                 password = "7!8Kas33!4",
+                 host = "localhost",
+                 name = "tidydata")
+
+cat("Connected to database successfully.")
+
+dbGetQuery(con, "USE tidydata")
+
+query <- readLines("C:/Users/RemoteUser/Downloads/TidyingTransforming_Data.sql")
+dbGetQuery(con, query)
+
+query1 <- "SELECT 
+    a.AirlineName AS 'Airline',
+    s.StatusName AS 'Status',
+    SUM(IF(d.DestName = 'Los Angeles', fd.FlightCount, 0)) AS 'Los Angeles',
+    SUM(IF(d.DestName = 'Phoenix', fd.FlightCount, 0)) AS 'Phoenix',
+    SUM(IF(d.DestName = 'San Diego', fd.FlightCount, 0)) AS 'San Diego',
+    SUM(IF(d.DestName = 'San Francisco', fd.FlightCount, 0)) AS 'San Francisco',
+    SUM(IF(d.DestName = 'Seattle', fd.FlightCount, 0)) AS 'Seattle'
+FROM FlightData fd
+JOIN Airlines a ON fd.AirlineId = a.AirlineId
+JOIN Destinations d ON fd.DestId = d.DestId
+JOIN Statuses s ON fd.StatusId = s.StatusId
+GROUP BY a.AirlineName, s.StatusName;"
+
+airline_data <- dbGetQuery(con, query1)
+write_csv(airline_data, "airline_data.csv") 
+
+airline_data
+dbDisconnect(con)
+```
+
+#2 Reshape the data to long format
+
+```{r}
+flightdata <- read_csv("airline_data.csv")
+
+# Reshape the data from wide to long format
+data_long <- flightdata %>%
+  pivot_longer(cols = -c(Airline, Status), names_to = "destination", values_to = "count")
+
+data_long
+
+```
+
+
+#3 Calculate total column and proportion of flights delay by carrier
+
+```{r}
+# Calculate the "Total" column
+data_long <- data_long %>%
+  group_by(Airline, Status, destination) %>%
+  summarise(Total = sum(count))
+
+# Calculate the "prop_delayed" column
+data_long <- data_long %>%
+  pivot_wider(names_from = Status, values_from = Total) %>%
+  mutate(, total  = `on time` + delayed, prop_delayed = paste0(format(100 * delayed / (delayed + `on time`), digits = 2), "%"))
+
+# Rename the Status column to match the desired output
+data_long <- data_long %>%
+  rename(on_time = `on time`)
+
+
+print(data_long)
+```
+
+
+# 3.	If you want to get to your destination on time, which airlines will you use?
+
+On average and by destination, the bar plots below shows that ALASKA airline has the lower proportion of flights delayed compared with AMWEST. Therefore, ALASKA should be the airline of choice if you want to reach your destination on time.
+
+```{r}
+# Create the bar chart
+ggplot(data_long, aes(x = destination, y = prop_delayed, fill = Airline)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Proportion of Delayed Flights by Destination and Airline",
+       x = "Destination",
+       y = "Proportion Delayed") +
+  theme_minimal() +
+  theme(legend.position = "right")
+
+
+
+
+```
+
+
+```{r}
+data_long %>%
+  mutate(prop_delayed = as.numeric(gsub("%", "", prop_delayed))) %>%  # Convert prop_delayed to numeric
+  ggplot(aes(x = Airline, y = prop_delayed)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(
+    title = "Proportion of Delayed Flights by Destination and Airline",
+    x = "Carrier",
+    y = "Proportion Delayed",
+    fill = "Airline"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+#4: Waht carrier provides the most service and what is the proportion of delayed arrivals per carries
+
+Based on the summary below, AMWEST provides the most flights and has the higher proportion of delayed arrivals.
+```{r}
+data_long %>%
+  group_by(Airline) %>%
+  summarise(total_fights = sum(total), mean_prop_delayed = mean(as.numeric(gsub("%", "", prop_delayed))))
+```
+
+
+#5: What airport experiences the most delays. Plot a bar chart to illustrate the total arrivals and the proportion of total delay per destination.
+
+Based on the summary and plots below, San Francisco is the destination that experience the most delays even though the number of arrivals is third to last. This is also illustrated in the following plot
+```{r}
+destination_delay <- data_long %>%
+  group_by(destination) %>%
+  summarise(total_delayed = sum(delayed), total_arrivals = sum(total), prop_delayed = round(sum(delayed)/sum(total), 2))
+
+destination_delay
+```
+
+```{r}
+# Create the bar chart
+p1 <- ggplot(destination_delay, aes(x = destination)) +
+  geom_bar(aes(y = prop_delayed), stat = "identity", position = "dodge", fill = "blue", width = 0.4) +
+  labs(title = "Total of Delayed Flights by Destination",
+       x = "Destination",
+       y = "Total Delayed") +
+  theme_minimal()
+
+p1
+
+p2 <- ggplot(destination_delay, aes(x = destination)) +
+  geom_bar(aes(y = total_arrivals), stat = "identity", position = "dodge", fill = "red", width = 0.4) +
+  labs(title = "Total of Delayed Flights by Destination",
+       x = "Destination",
+       y = "Total Delayed") +
+  theme_minimal()
+
+p2
+
+library(gridExtra)
+
+grid.arrange(p1, p2, ncol = 1)
+```
+
+# Conclusion
+
+1. AMWEST provides the most flights and has the highest proportion of delayed flights for all destinations.
+2. Phoenix is the destination with the most arrivals but with the lowest proportion of delayed arrivals.
+3. San Francisco, though it comes third to last in arrivals flight has the highest proportion of delayed arrivals.
+4. For any given destination, ALASKA has the lowest proportion of delayed flights.
+
+
+
+t
