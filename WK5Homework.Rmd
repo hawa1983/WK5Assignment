@@ -70,9 +70,9 @@ JOIN Destinations d ON fd.DestId = d.DestId
 JOIN Statuses s ON fd.StatusId = s.StatusId
 GROUP BY a.AirlineName, s.StatusName;"
 
-airline_data <- dbGetQuery(con, query1)
-write_csv(airline_data, "airline_data.csv") 
-
+#airline_data <- dbGetQuery(con, query1)  
+#write_csv(airline_data, "airline_data.csv") 
+airline_data <- read_csv("https://raw.githubusercontent.com/hawa1983/WK5Assignment/main/airline_data.csv")
 airline_data
 dbDisconnect(con)
 ```
@@ -80,10 +80,10 @@ dbDisconnect(con)
 #2 Reshape the data to long format
 
 ```{r}
-flightdata <- read_csv("https://raw.githubusercontent.com/hawa1983/WK5Assignment/main/airline_data.csv")
+
 
 # Reshape the data from wide to long format
-data_long <- flightdata %>%
+data_long <- airline_data %>%
   pivot_longer(cols = -c(Airline, Status), names_to = "destination", values_to = "count")
 
 data_long
